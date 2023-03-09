@@ -8,7 +8,8 @@
 #SBATCH --gres=gpu:1
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=
-#SBATCH --output=slogs/yolo2tator/%j.%x.txt
+#SBATCH --array=
+#SBATCH --output=slogs/yolo2tator/%A.%a.%x.txt
 
 set -x
 
@@ -18,8 +19,12 @@ hostname; pwd; date
 
 module load cuda10.1/toolkit cuda10.1/blas cuda10.1/cudnn/8.0.2 cuda91/fft
 module load python3/3.9.10
-source venv/bin/activate
+source /vortexfs1/scratch/IFCB/tator/venv/bin/activate
 echo "Environment... loaded"
+
+VIDEO_DIR=$(sed "${SLURM_ARRAY_TASK_ID}q;d" $1)
+shift
+VIDEO=$(basename "$VIDEO_DIR")
 
 set -eu
 
@@ -30,6 +35,6 @@ set -eu
 
 TOKEN=$(cat tator_token.txt)  # hpc-user access token
 
-time python3 run_yolo_model_on_video_and_upload_rois.py "$@" --device=0 --token $TOKEN
+time python3 run_yolo_model_on_video_and_upload_rois.py "$VIDEO_DIR" "$@" --device=0 --token $TOKEN
 
 

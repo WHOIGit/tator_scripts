@@ -15,7 +15,7 @@ class hashabledict(dict):
 def get_args():
     
     parser = argparse.ArgumentParser()
-    parser.add_argument('MEDIA', help='the data/viideo you want to process')
+    parser.add_argument('MEDIA', help='the data/video you want to process')
     parser.add_argument('MODEL', help='the yolo model (weights) to apply to MEDIA')
     
     tator_args = parser.add_argument_group(title='Tator Parameters', description=None)
@@ -24,6 +24,8 @@ def get_args():
     tator_args.add_argument('--project', default='1', help='Default is "1" for the ISIIS project')  # isiis
     #tator_args.add_argument('--media_type', default='1')  # shadowgraph video
     tator_args.add_argument('--localization_type', default='1', help='Default is "1" for Shadowgraph ROI localization_type id')  # ROI
+    tator_args.add_argument('--version', help='Version or layer to upload ROIs to. Default is ModelName')
+    tator_args.add_argument('--force-version', action='store_true', help='If VERSION doesnt exist, create it')
     
     tator_args.add_argument('--class-attribute', default='Class', help='Default is the localization_type "Class" attribute)')
     tator_args.add_argument('--media_id', type=int, help='[optional] tator media id reference')
@@ -52,6 +54,11 @@ def get_args():
             if l:
                 model_classlist.append(l)
     args.model_classlist = model_classlist
+    
+    if not args.version:
+        model_name = os.path.basename(args.MODEL) if not args.MODEL.endswith('best.pt') else args.MODEL.split('/')[-3]
+        args.version = model_name
+    
     return args
 
     
@@ -110,6 +117,30 @@ def tator_args_str2id(args, api):
     print('MEDIA_ID:',args.media_id)
     # TODO check media_obj for a source attribute to go looking up the correct piece of backend/original media
     
+    # 5) check that VERSION exists, note version id. If it doesn't exist maybe create it
+    if args.version:
+        versions_avail = {v.name:v.id for v in api.get_version_list(args.project)}
+        pprint(versions_avail)
+        if args.version.isnumeric():
+            args.version = int(args.version)
+            version_name = api.get_version(args.version)
+        else:
+            if args.version in versions_avail:
+                version_name = args.version
+                args.version = versions_avail[args.version]
+            else:
+                print(f'Version "{args.version}" not in: {", ".join(versions_avail)}')
+                if args.force_version:
+                    print('Creating new Version')
+                    new_version_spec = dict(name=args.version,
+                                            description=args.args.MODEL)
+                    version_create_response = api.create_version(args.project, new_version_spec)
+                    version_name = args.version
+                    args.version = version_create_response.id
+                else:
+                    raise KeyError()
+        print(f'Version: {version_name} (ID:{args.version})')
+    
     return args
 
 
@@ -130,8 +161,10 @@ def format_preds(preds, args):
     classes = set()
     spec_invalid = []
     for pred in preds:
-        frame,c,x,y,w,h,score = pred
-        frame = int(frame)+args.frame_offset
+        #TODO check that frame is a valid for directory of images. see detect.py "dataset = LoadImages(" then util.dataset  "class LoadImages"
+        media_path,frame,c,x,y,w,h,score = pred
+        frame = int(frame) if os.path.isfile(args.MEDIA) else int(media_path.split('_')[-1].replace('.tiff',''))
+        frame = frame + args.frame_offset
         x,y,w,h = float(x),float(y),float(w),float(h)
         x = x-w/2
         y = y-h/2
@@ -149,6 +182,7 @@ def format_preds(preds, args):
                 'Verified': False,
                 'ModelScore': float(score),
                 'ModelName':  args.MODEL, 
+                'version': args.version, 
                 args.class_attribute: model_class,  # 'Class'
                 })
         if frame <= 0 and args.skip_title_frame: continue
@@ -212,7 +246,6 @@ if __name__ == '__main__':
     
     # 4) bulk upload detections to tator, w/ new version number
     roi_ids = upload_ROIs(roi_specs, api, args)
-    
     
     print('Done')
     

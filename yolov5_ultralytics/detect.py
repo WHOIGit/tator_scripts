@@ -106,7 +106,7 @@ def run(
     elif screenshot:
         dataset = LoadScreenshots(source, img_size=imgsz, stride=stride, auto=pt)
     else:
-        dataset = LoadImages(source, img_size=imgsz, stride=stride, auto=pt, vid_stride=vid_stride)
+        dataset = LoadImages(source, img_size=imgsz, stride=stride, auto=pt, vid_stride=vid_stride, natsort=True)
     vid_path, vid_writer = [None] * bs, [None] * bs
 
     # Run inference
@@ -143,10 +143,10 @@ def run(
                 det[:, :4] = scale_boxes(im.shape[2:], det[:, :4], im0.shape).round()
                 for *xyxy, conf, cls in reversed(det):
                     xywh = (xyxy2xywh(torch.tensor(xyxy).view(1, 4)) / gn).view(-1).tolist()
-                    line = (frame, int(cls.item()), *xywh, conf.item())
+                    line = (path, frame, int(cls.item()), *xywh, conf.item())
                     results.append(line)
             LOGGER.info(f"{s}{len(det):02d} detections, {dt[1].dt * 1E3:.1f}ms")
-            continue
+            continue  # skips "process predictions" below
 
         # Process predictions
         for i, det in enumerate(pred):  # per image
