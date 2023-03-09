@@ -5,7 +5,7 @@
 #SBATCH --mem-per-cpu=2GB
 #SBATCH --time=6:00:00
 #SBATCH --mail-type=ALL
-#SBATCH --mail-user=hsosik@whoi.edu
+#SBATCH --mail-user=
 #SBATCH --partition=compute
 #SBATCH --output=slogs/video2tator/%j.%x.txt
 
@@ -16,10 +16,9 @@ hostname; pwd; date
 # SETTING UP ENVIRONMENT #
 module load ffmpeg
 module load gcc/8.5.0
-module load python3/3.9.10
 source venv/bin/activate
-umask 000  # newly created files have all permissions ok. 
-PATH="$(realpath bin):$PATH"  # add bin/mp4dump to PATH
+umask 000  # newly created files have all-open permissions ok. 
+
 echo "Environment... loaded"
 
 set -eux  # exit on error, including unset vars
@@ -42,7 +41,8 @@ time python3 -m tator.transcode "$VIDEO_FILE" \
     --project $PROJ_ID \
     --type $MEDIA_ID \
     --section "$FOLDER" \
-    --work_dir "tator_transcode_workspace" 
+    --work_dir "tator_transcode_workspace" \
+    --cleanup
 
 echo 
 TZ=UTC0 printf '%(%H:%M:%S)T\n' $SECONDS
