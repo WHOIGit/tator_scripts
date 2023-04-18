@@ -57,7 +57,9 @@ def get_args():
     
     if not args.version:
         model_name = os.path.basename(args.MODEL) if not args.MODEL.endswith('best.pt') else args.MODEL.split('/')[-3]
-        args.version = model_name
+        param_str = f'__imgsz={args.imgsz[0]}__conf={args.conf_thres}__iou={args.iou_thres}'
+        param_str += f'{"__agnosticNMS" if args.agnostic_nms else ""}{"__FP16" if args.half else ""}'
+        args.version = model_name + param_str
     
     return args
 
@@ -100,22 +102,28 @@ def tator_args_str2id(args, api):
     args.roi_classes = [attrib.choices for attrib in localization_type.attribute_types if attrib.name==args.class_attribute][0]
     
     # 3) if MEDIA exists on tator, note media ID
-    if args.media_id:
+    if args.MEDIA.endswith('.mp4'):
+        if args.media_id:
+            media_obj = api.get_media(id=args.media_id)
+            MEDIA_name = os.path.splitext(media_obj.name)[0]
+        else:
+            MEDIA_name = os.path.splitext(os.path.basename(args.MEDIA))[0]
+            media_obj = api.get_media_list(args.project, name=MEDIA_name+'.mp4')
+            assert len(media_obj) != 0, f'MEDIA name "{MEDIA_name}" was not found in project {project_name} ({args.project}). Has it been uploaded yet?'
+            assert len(media_obj) == 1, f'MEDIA name "{MEDIA_name}" has duplicates in project {project_name} ({args.project}). Select one from these IDs using --media_id: {",".join([str(d.id) for d in media_obj])}'
+            media_obj = media_obj[0]
+            #pprint(media_obj)
+        args.media_id = media_obj.id
+    
+        # 4) check that MEDIA is a real/accessible path. if not, check tator media for src file path.
+        assert os.path.exists(args.MEDIA), f'MEDIA "{args.MEDIA}" is not a valid file.'
+        print('MEDIA_ID:',args.media_id)
+        # TODO check media_obj for a source attribute to go looking up the correct piece of backend/original media
+    elif args.MEDIA.endswith('.tiff'):
+        assert args.media_id, '--media_id must be set manually while using .tiff as MEDIA'
         media_obj = api.get_media(id=args.media_id)
         MEDIA_name = os.path.splitext(media_obj.name)[0]
-    else:
-        MEDIA_name = os.path.splitext(os.path.basename(args.MEDIA))[0]
-        media_obj = api.get_media_list(args.project, name=MEDIA_name+'.mp4')
-        assert len(media_obj) != 0, f'MEDIA name "{MEDIA_name}" was not found in project {project_name} ({args.project}). Has it been uploaded yet?'
-        assert len(media_obj) == 1, f'MEDIA name "{MEDIA_name}" has duplicates in project {project_name} ({args.project}). Select one from these IDs using --media_id: {",".join([str(d.id) for d in media_obj])}'
-        media_obj = media_obj[0]
-        #pprint(media_obj)
-    args.media_id = media_obj.id
-    
-    # 4) check that MEDIA is a real/accessible path. if not, check tator media for src file path.
-    assert os.path.exists(args.MEDIA), f'MEDIA "{args.MEDIA}" is not a valid file.'
-    print('MEDIA_ID:',args.media_id)
-    # TODO check media_obj for a source attribute to go looking up the correct piece of backend/original media
+        
     
     # 5) check that VERSION exists, note version id. If it doesn't exist maybe create it
     if args.version:
@@ -132,8 +140,7 @@ def tator_args_str2id(args, api):
                 print(f'Version "{args.version}" not in: {", ".join(versions_avail)}')
                 if args.force_version:
                     print('Creating new Version')
-                    new_version_spec = dict(name=args.version,
-                                            description=args.args.MODEL)
+                    new_version_spec = dict(name=args.version, description=args.MODEL)
                     version_create_response = api.create_version(args.project, new_version_spec)
                     version_name = args.version
                     args.version = version_create_response.id
@@ -163,7 +170,7 @@ def format_preds(preds, args):
     for pred in preds:
         #TODO check that frame is a valid for directory of images. see detect.py "dataset = LoadImages(" then util.dataset  "class LoadImages"
         media_path,frame,c,x,y,w,h,score = pred
-        frame = int(frame) if os.path.isfile(args.MEDIA) else int(media_path.split('_')[-1].replace('.tiff',''))
+        frame = int(frame) if os.path.isfile(args.MEDIA) and not args.MEDIA.endswith('.tiff') else int(media_path.split('_')[-1].replace('.tiff',''))
         frame = frame + args.frame_offset
         x,y,w,h = float(x),float(y),float(w),float(h)
         x = x-w/2
