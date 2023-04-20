@@ -1,6 +1,9 @@
 
+from functools import lru_cache
+
 import argparse
 import tator
+from tator.openapi.tator_openapi.models import Project, Media, LocalizationType, Version, User
 
 def cli():
     parser = argparse.ArgumentParser()
@@ -27,8 +30,10 @@ def cli():
     return args
 
 
-
+@lru_cache(maxsize=None, typed=True)
 def get_project(api, query):
+    #if isinstance(query,Project):
+    #    return query
     if str(query).isdigit(): 
         query = int(query)
     if isinstance(query, int):
@@ -42,36 +47,59 @@ def get_project(api, query):
         return project_objs[0]
 
 
+def get_project_id(api, p):
+    assert p != None, 'Must Specify a Project'
+    if isinstance(p, Project):
+        return p.id
+    elif isinstance(p, str):
+        if p.isdigit():
+            return int(p)
+        else:
+            project = get_project(api, p)
+            return project.id
+    elif isinstance(p,int):
+        return p
+
+@lru_cache(maxsize=None, typed=True)
 def get_media(api, query, project=None):
+    #if isinstance(query, Media):
+    #    return query
     if str(query).isdigit(): 
         query = int(query)
     if isinstance(query, int):
         return api.get_media(query)
     else:
-        assert project != None, 'Must Specify a Project'
-        if not isinstance(project,int):
-            project = get_project(api, project).id
+        
+        project_id = get_project_id(api, project)
+        
         if query=='list':
-            project_objs = api.get_media_list(project, dtype='video')
+            project_objs = api.get_media_list(project_id, dtype='video')
             return sorted(project_objs, key = lambda p: p.id)
+        
         media_objs = api.get_media_list(project, name=query)
+
         assert len(media_objs)==1, f'Duplicate Media Found for "{query}": {[obj.id for obj in media_objs]}' if len(media_objs)>1 else f'Media Not Found: "{query}"{"" if "." in query else ". Did you remember to include a file extention like .mp4?" }'
         return media_objs[0]
-
-    
+        
+        
+@lru_cache(maxsize=None, typed=True)
 def get_version(api, query, project=None, autocreate=False):
+    #if isinstance(query,Version):
+    #    return query
     if str(query).isdigit(): 
         query = int(query)
     if isinstance(query, int):
         return api.get_version(query)
     else:
-        assert project != None, 'Must Specify a Project'
-        if not isinstance(project,int):
-            project = get_project(api, project).id
-        version_objs = api.get_version_list(project)
+        
+        project_id = get_project_id(api, project)
+            
+        version_objs = api.get_version_list(project_id)
         if query=='list':
             return sorted(version_objs, key = lambda v: v.id)
+        
         version_objs = [v for v in version_objs if v.name == query]
+
         if len(version_objs)==1:
             return version_objs[0]            
         elif len(version_objs)>1:
@@ -79,31 +107,36 @@ def get_version(api, query, project=None, autocreate=False):
         elif autocreate:
             print(f'Creating new Version: "{query}"')
             new_version_spec = dict(name=query)
-            version_create_response = api.create_version(project.id, new_version_spec)
+            version_create_response = api.create_version(project_id, new_version_spec)
             print(version_create_response)  # TODO remove
             return api.get_version(version_create_response.id)
         else:
             raise KeyError(f'Version Not Found: "{query}"')
         
-
+        
+@lru_cache(maxsize=None, typed=True)
 def get_loctype(api, query, project=None):
+    #if isinstance(query, LocalizationType):
+    #    return query
     if str(query).isdigit(): 
         query = int(query)
     if isinstance(query, int):
         return api.get_localization_type(query)
     else:
-        assert project != None, 'Must Specify a Project'
-        if not isinstance(project,int):
-            project = get_project(api, project).id
-        loctype_objs = api.get_localization_type_list(project)
+
+        project_id = get_project_id(api, project)
+
+        loctype_objs = api.get_localization_type_list(project_id)
         if query=='list':
-            return version_objs
+            return loctype_objs
         loctype_objs = [lt for lt in loctype_objs if lt.name == query]
         assert len(loctype_objs)==1, f'Duplicate Versions Found for "{query}": {[obj.id for obj in loctype_objs]}' if len(loctype_objs)>1 else f'LocalizationType Not Found: "{query}"'
         return loctype_objs[0]
 
-
+@lru_cache(maxsize=None, typed=True)
 def get_user(api, username_or_id):
+    #if isinstance(username_or_id,User):
+    #    return username_or_id
     if str(username_or_id).isdigit(): 
         query = int(username_or_id)
     if isinstance(username_or_id, int):
