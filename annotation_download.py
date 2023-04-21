@@ -8,20 +8,26 @@ import tator
 
 import api_util
 
-def cli():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('TOKEN', help='A tator api token')
-    parser.add_argument('--HOST', default='https://tator.whoi.edu', help='Tator Server URL, default is "https://tator.whoi.edu"')
-    parser.add_argument('--outfile', help='Output CSV')
-    parser.add_argument('--project', '-p', required=True, help='Project Name or ID. Required.')
+def add_tator_getloc_args(parser):
+    parser.add_argument('--token', required=True, help='A tator api token')
+    parser.add_argument('--host', default='https://tator.whoi.edu', help='Tator Server URL, default is "https://tator.whoi.edu"')
+    parser.add_argument('--Project', '-p', required=True, help='Project Name or ID. Required.')
     #parser.add_argument('--section', '-s', help='Section Name or ID')    
     parser.add_argument('--media', '-m', nargs='+', help='Media Name or ID')
     parser.add_argument('--frame', '-f', type=int, help='Frame ID')
     parser.add_argument('--loctype', '-l', help='LocalizationType Name or ID')
     parser.add_argument('--version', '-v', nargs='+', help='Version Name or ID')
-    parser.add_argument('--att', metavar=('ATT','VAL'), nargs=2, action='append', help='Attribute Equality filter. May be invoked several times. Eg "--att Verified true --att Class Akashiwo"')
+    parser.add_argument('--att', metavar=('ATT','VAL'), nargs=2, action='append', help='Attribute Equality filter. May be invoked several times. Eg "--att Verified true --att Class diatom"')
     parser.add_argument('--pagination', metavar=('START','STOP'), nargs=2, type=int, help='limit returned results')
     parser.add_argument('--id', help='Either a single Localization ID or a text file listing multiple IDs')
+    
+
+def cli():
+    parser = argparse.ArgumentParser()
+    add_tator_getloc_args(parser)
+    
+    # TODO also download ROI thumbnail image
+    parser.add_argument('--outfile', help='Output CSV')
     
     args = parser.parse_args()
     
@@ -54,7 +60,7 @@ def get_localizations(api, project, versions=None, loctype=None, att_keyval_pair
     #    kwargs['section'] = api_util.get_section(api,section).id
         
     if att_keyval_pairs:
-        kwargs['attribute'] = ','.join( [f'{att}::{val}' for att,val in att_keyval_pairs] )
+        kwargs['attribute'] = [f'{att}::{val}' for att,val in att_keyval_pairs]
     # attribute (list[str**]) - Attribute equality filter. 
     #     _lt _lte _gt _gte _contains _null 
     #     Format is attribute1::value1,[attribute2::value2].
@@ -89,8 +95,8 @@ def format_localization_dict(api, l):
     #d['frame_tiff'] = os.path.join(media_obj.attributes['tiff_dir'],media_obj.attributes['tiff_pattern'].format(l.frame))
     d['version_id'] = l.version
     d['version'] = api_util.get_version(api, l.version).name
-    d['modified_by'] = api.get_user(l.created_by).username if l.created_by else ''
-    d['modified_datetime'] = l.created_datetime.isoformat(timespec='seconds') if l.created_datetime else ''
+    #d['created_by'] = api.get_user(l.created_by).username if l.created_by else ''
+    #d['created_datetime'] = l.created_datetime.isoformat(timespec='seconds') if l.created_datetime else ''
     d['modified_by'] = api.get_user(l.modified_by).username if l.modified_by else ''
     d['modified_datetime'] = l.modified_datetime.isoformat(timespec='seconds') if l.modified_datetime else ''
     for att in 'x y width height'.split():
@@ -105,11 +111,11 @@ if __name__=='__main__':
     api = tator.get_api(args.HOST,args.TOKEN)
 
     if not args.loctype:
-        loctypes = api_util.get_loctype(api, 'list', args.project)
+        loctypes = api_util.get_loctype(api, 'list', args.Project)
         assert len(loctypes)==1, 'Multiple Localizations Detected: {'+','.join([f'{lt.id}:{lt.name}' for lt in loctypes])+'}. Specify one with --loctype'
         args.loctype = loctypes[0].id
        
-    localizations = get_localizations(api, args.project, args.version, args.loctype, args.att, args.media, args.frame, args.pagination, args.id)
+    localizations = get_localizations(api, args.Project, args.version, args.loctype, args.att, args.media, args.frame, args.pagination, args.id)
     
     ## DISPLAY
     loc_dicts = [format_localization_dict(api,loc) for loc in localizations]
