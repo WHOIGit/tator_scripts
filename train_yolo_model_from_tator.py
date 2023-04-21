@@ -154,8 +154,9 @@ if __name__=='__main__':
     print('Distributing Frames to Training and Validation datasets')
     #TODO split frames PERCLASS somehow
     #TODO check for class mismatches between tator locs and args.classes
-    cwd = os.getcwd()
-    sym_frames = [os.path.join(cwd,frame) for frame in sym_frames]
+    if not args.datadir.startswith('/'):
+        cwd = os.getcwd()
+        sym_frames = [os.path.join(cwd,frame) for frame in sym_frames]
     train_frames, val_frames = trainval_split(sym_frames,args.split)
     train_txt = 'train.txt'
     val_txt = 'val.txt'
@@ -178,8 +179,6 @@ if __name__=='__main__':
         #print(frame, list(loccount_perclass_persymframe[frame]))
         for cls,count in loccount_perclass_persymframe[frame].items():
             classcounts[cls]['val'] += count
-    print('\n'.join(args.classes))
-    pprint(classcounts)
     for cls in args.classes:
         dct = classcounts[cls]
         dct['total'] = dct['train'] + dct['val']
@@ -191,7 +190,8 @@ if __name__=='__main__':
     #8 create yaml file input for yolo train.py
     print('Writing dataset.yaml file')
     dataset_yaml = os.path.join(args.datadir, 'dataset.yaml')
-    make_dataset_yaml('../'+args.datadir, train_txt, val_txt, args.classes, output=dataset_yaml)
+    make_dataset_yaml(args.datadir if args.datadir.startswith('/') else '../'+args.datadir, 
+                      train_txt, val_txt, args.classes, output=dataset_yaml)
     args.data = dataset_yaml
     
     #9 run train.py
