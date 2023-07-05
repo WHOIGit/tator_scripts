@@ -12,6 +12,7 @@ def cli():
     parser.add_argument('--user', '-u', help='Username or ID of a User. "list" will list all users')
     parser.add_argument('--project', '-p', help='Name or ID of the Project. Required for media, loctype, version string-name lookup. "list" will list all projects')
     parser.add_argument('--media', '-m', help='Name or ID of the Media. "list" will list all video media for given project')
+    parser.add_argument('--mediatype', help='Name or ID of the MediaType. "list" will list all media types for given project')
     parser.add_argument('--loctype', '-l', help='Name or ID of the LocalizationType. "list" will list all localization types for given project')
     parser.add_argument('--version', '-v', help='Name or ID of the Version. "list" will list all versions for given project')
     parser.add_argument('--statetype', '-s', help='Name or ID of the StateType. "list" will list all StateTypes for given project')
@@ -38,6 +39,23 @@ def cli():
     return args
 
 
+def add_arg_ids(api,args):
+    if 'project' in args and args.project != 'list':
+        args.project_id = get_project_id(api,args.project)
+    if 'user' in args and args.user != 'list':
+        args.user_id = get_user(api,args.user).id
+    if 'media' in args and args.media != 'list':
+        args.media_id = get_media(api,args.media,project=args.project_id)
+    if 'mediatype' in args and args.mediatype != 'list':
+        args.mediatype_id = get_mediatype(api,args.mediatype,project=args.project_id).id
+    if 'loctype' in args and args.loctype != 'list':
+        args.loctype_id = get_loctype(api,args.loctype,project=args.project_id).id
+    if 'version' in args and args.version != 'list':
+        args.version_id = get_version(api,args.version,project=args.project_id).id
+    if 'statetype' in args and args.statetype != 'list':
+        args.statetype_id = get_statetype(api, args.version, project=args.project_id).id
+
+
 @lru_cache(maxsize=None, typed=True)
 def get_project(api, query):
     if str(query).isdigit(): 
@@ -54,7 +72,7 @@ def get_project(api, query):
 
 
 def get_project_id(api, p):
-    assert p != None, 'Must Specify a Project'
+    assert p is not None, 'Must Specify a Project'
     if isinstance(p, Project):
         return p.id
     elif isinstance(p, str):
@@ -85,12 +103,44 @@ def get_media(api, query, project=None):
     assert len(media_objs)==1, f'Duplicate Media Found for "{query}": {[obj.id for obj in media_objs]}' if len(media_objs)>1 else f'Media Not Found: "{query}"{"" if "." in query else ". Did you remember to include a file extention like .mp4?" }'
     return media_objs[0]
 
+def get_media_id(api, m, project=None):
+    assert m is not None, 'Media query is None'
+    if isinstance(m, Media):
+        return m.id
+    elif isinstance(m, str):
+        if m.isdigit():
+            return int(m)
+        else:
+            m = get_media(api, m, project)
+            return m.id
+    elif isinstance(m,int):
+        return m
+
 @lru_cache(maxsize=None, typed=True)
 def get_medias(api, queries:tuple, project=None):
     project_id = get_project_id(api, project)
     if all([isinstance(elem,int) for elem in queries]):
         return api.get_media_list_by_id(project_id, tator.models.MediaIdQuery(ids=queries))
     return [get_media(api,elem,project_id) for elem in queries]
+
+
+@lru_cache(maxsize=None, typed=True)
+def get_mediatype(api, query, project=None):
+    if str(query).isdigit():
+        query = int(query)
+    if isinstance(query, int):
+        return api.get_media_type(query)
+    project_id = get_project_id(api, project)
+
+    mediatype_objs = api.get_media_type_list(project_id)
+
+    if query=='list':
+        return sorted(mediatype_objs, key = lambda p: p.id)
+
+    mediatype_obj = [mt for mt in mediatype_objs if mt.name==query]
+    assert len(mediatype_obj)==1, f'Duplicate MediaType Found for "{query}": {[obj.id for obj in mediatype_obj]}' if len(mediatype_obj)>1 else f'Media Not Found: "{query}"'
+    return mediatype_obj[0]
+
 
 @lru_cache(maxsize=None, typed=True)
 def get_version(api, query, project=None, autocreate=False):
@@ -116,7 +166,9 @@ def get_version(api, query, project=None, autocreate=False):
             raise AssertionError(f'Duplicate Versions Found for "{query}": {[obj.id for obj in version_objs]}')
         elif autocreate:
             print(f'Creating new Version: "{query}"')
-            new_version_spec = dict(name=query)
+            new_version_spec = dict(name=query, show_empty=False)
+            if isinstance(autocreate,str):
+                new_version_spec['description'] = autocreate
             version_create_response = api.create_version(project_id, new_version_spec)
             print(version_create_response)  # TODO remove
             return api.get_version(version_create_response.id)
@@ -157,7 +209,6 @@ def get_statetype(api, query, project=None):
 
         statetype_objs = api.get_state_type_list(project_id)
         if query=='list':
-            print(statetype_objs[0])
             return statetype_objs
         statetype_objs = [st for st in statetype_objs if st.name == query]
         assert len(statetype_objs)==1, f'Duplicate Versions Found for "{query}": {[obj.id for obj in statetype_objs]}' if len(statetype_objs)>1 else f'LocalizationType Not Found: "{query}"'
