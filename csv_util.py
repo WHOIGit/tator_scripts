@@ -31,7 +31,9 @@ def cli():
     # create imagepath column
     # sort
     # add media_id col
-    parser.add_argument('--action')
+    # convert tiff pattern to media name
+    # check classes
+    parser.add_argument('--action', action='append')
 
     parser.add_argument('--outfile', help='Output CSV')
 
@@ -70,17 +72,37 @@ def ratio_to_pixel(img_length):
 
 if __name__ == '__main__':
     args = cli()
+    
     dtypes = {args.col_media:str, args.col_frame:int,
               args.col_x:float, args.col_y:float,
               args.col_w:float, args.col_h:float}
     df = pd.read_csv(args.src, dtype=dtypes)
-
-    if 'action' == 'tiff_frame':
-        api = tator.get_api(args.host, args.token)
+  
+    api = tator.get_api(args.host, args.token)
+    project = api_util.get_project(api, args.project)
+    args.project = project.name
+    args.project_id = project.id
+  
+    if 'add_tiff_frame' in args.action:
+        print('ADDING TIFF IMG PATHS')
         df[args.col_imagepath] = df.apply(lambda l: os.path.join(
             api_util.get_media(api, l[args.col_media]).attributes['tiff_dir'],
             api_util.get_media(api, l[args.col_media]).attributes['tiff_pattern'].format( l['frame'] )
         ))
+  
+    if 'check_classes' in args.action:
+        print('CHECK CLASSES')
+        classes_csv = set(df[args.col_class])
+        classes_tator = {leaf.name for leaf in api.get_leaf_list(args.project_id)}
+        assert classes_csv.issubset(classes_tator), f'Unrecognized csv classes: {classes_csv-classes_tator}'
+        
+    if 'convert_coords_upleft' in args.action:
+        print('CONVERTING COORDS UP-LEFT')
+        df[args.col_x] = df[args.col_x]-df[args.col_w]/2
+        df[args.col_y] = df[args.col_y]-df[args.col_h]/2
+        df = df.round({args.col_x:7,args.col_y:7})
+        df[args.col_x] = df[args.col_x].clip(lower=0, upper=1)
+        df[args.col_y] = df[args.col_y].clip(lower=0, upper=1)
 
     if args.outfile and args.outfile.endswith('.csv'):
         df.to_csv(args.outfile, index=False)

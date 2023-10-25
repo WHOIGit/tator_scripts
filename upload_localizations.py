@@ -37,7 +37,8 @@ def make_speclist(api,args):
     addl_headers = []
 
     df = pd.read_csv(args.src)
-    df.rename(columns=args.col_rename, inplace=True, errors="raise")
+    if args.col_rename:
+        df.rename(columns=args.col_rename, inplace=True, errors="raise")
     df = df.convert_dtypes()
     print(df.T)
     df = df.sort_values(by=required_headers)
@@ -75,7 +76,7 @@ def upload_speclist(api, speclist, project_id):
     speclist500s = [speclist[i:i+500] for i in range(0, len(speclist), 500)]
     for speclist500 in tqdm(speclist500s):
         obj_ids = api.create_localization_list(project_id, speclist500)
-        created_ids.extend(obj_ids)
+        created_ids.extend(obj_ids.id)
 
     return created_ids
 
@@ -94,8 +95,9 @@ if __name__ == '__main__':
 
     speclist = make_speclist(api,args)
 
-    created_ids = upload_speclist(api, speclist, args.project_id)
-
+    created_ids = upload_speclist(api, speclist[21:], args.project_id)
+    print(created_ids)
+    
     print(f'DONE! Created {len(created_ids)} localizations')
 
 

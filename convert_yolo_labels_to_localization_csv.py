@@ -18,14 +18,15 @@ def do_it(src):
     for root, directories, files in os.walk(src):
          for filename in files:
              # 2 for each file determine the media and frame
-             media_id,frame = os.path.splitext(filename)[0].rsplit('_',1)
-             media_id, frame = int(media_id),int(frame)
+             media = root.rstrip('/').replace('/labels','').split('/')[-1]
+             basler_id,frame = os.path.splitext(filename)[0].rsplit('_',1)
+             frame = int(frame)
              with open(os.path.join(root,filename)) as f:
                  for line in f.read().splitlines():
                      # 3 extract "class x y w h score" lines from file
                      c,x,y,w,h,s = line.strip().split()
                      c,x,y,w,h,s = int(c),float(x),float(y),float(w),float(h),float(s)
-                     loc = dict(media=media_id, frame=frame,
+                     loc = dict(media=media, frame=frame,
                                 x=x, y=y, width=w, height=h,
                                 score=s, class_idx=c)
                      print(loc)
