@@ -2,12 +2,11 @@ import argparse
 import os
 import pandas as pd
 
-import yaml
 
 def cli():
     parser = argparse.ArgumentParser()
     parser.add_argument('src', metavar='YOLO_LABELS_DIR')
-    parser.add_argument('--classfile')
+    parser.add_argument('--classfile', required=True)
     parser.add_argument('outfile', metavar='CSV')
     args = parser.parse_args()
 
@@ -29,6 +28,7 @@ def do_it(src):
                      loc = dict(media=media_id, frame=frame,
                                 x=x, y=y, width=w, height=h,
                                 score=s, class_idx=c)
+                     print(loc)
                      locs.append(loc)
 
     # 4 make a csv with pandas
@@ -43,11 +43,15 @@ if __name__=='__main__':
     # 4 convert class idx to str (using yaml file?)
     with open(args.classfile) as f:
         if args.classfile.endswith('.yaml'):
+            import yaml
             yaml_data = yaml.safe_load(f)
             classes = yaml_data['names']
+        elif args.classfile.endswith('.pt'):
+            from ultralytics import YOLO
+            classes = list(YOLO(args.classfile).names.values())
         else:
             classes = f.read().splitlines()
     df['Class'] = df.class_idx.apply(lambda c: classes[c])
 
-    df.sort_values(by=['media_id','frame', 'x', 'y'], inplace=True)
+    df.sort_values(by=['media','frame', 'x', 'y'], inplace=True)
     df.to_csv(args.outfile, index=False)
