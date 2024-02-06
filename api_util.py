@@ -16,6 +16,8 @@ def cli():
     parser.add_argument('--loctype', '-l', help='Name or ID of the LocalizationType. "list" will list all localization types for given project')
     parser.add_argument('--version', '-v', help='Name or ID of the Version. "list" will list all versions for given project')
     parser.add_argument('--statetype', '-s', help='Name or ID of the StateType. "list" will list all StateTypes for given project')
+    parser.add_argument('--leaftype', '-f', help='Name or ID of the LeafType. "list" will list all LeafTypes for given project')
+    parser.add_argument('--leaf', default='list', help='Name or ID of a Leaf. "list" (default) will list all Leaf objects for given LeafType')
     
     args = parser.parse_args()
 
@@ -54,6 +56,10 @@ def add_arg_ids(api,args):
         args.version_id = get_version(api,args.version,project=args.project_id).id
     if 'statetype' in args and args.statetype != 'list':
         args.statetype_id = get_statetype(api, args.version, project=args.project_id).id
+    if 'leaftype' in args and args.leaftype != 'list':
+        args.leaftype_id = get_leaftype(api, args.leaftype, project=args.project_id).id
+        if 'leaf' in args and args.leaf != 'list':
+            args.leaf_id = get_leaf(api, args.leaf, args.leaftype, project=args.project_id).id
 
 
 @lru_cache(maxsize=None, typed=True)
@@ -195,9 +201,10 @@ def get_loctype(api, query, project=None):
         assert len(loctype_objs)==1, f'Duplicate Versions Found for "{query}": {[obj.id for obj in loctype_objs]}' if len(loctype_objs)>1 else f'LocalizationType Not Found: "{query}"'
         return loctype_objs[0]
 
+
 @lru_cache(maxsize=None, typed=True)
 def get_statetype(api, query, project=None):
-    #if isinstance(query, LocalizationType):
+    #if isinstance(query, StateType):
     #    return query
     if str(query).isdigit():
         query = int(query)
@@ -214,6 +221,7 @@ def get_statetype(api, query, project=None):
         assert len(statetype_objs)==1, f'Duplicate Versions Found for "{query}": {[obj.id for obj in statetype_objs]}' if len(statetype_objs)>1 else f'LocalizationType Not Found: "{query}"'
         return statetype_objs[0]
 
+
 @lru_cache(maxsize=None, typed=True)
 def get_user(api, username_or_id):
     #if isinstance(username_or_id,User):
@@ -228,6 +236,57 @@ def get_user(api, username_or_id):
     else:
         return api.get_user_list(username=username_or_id)[0]
 
+
+@lru_cache(maxsize=None, typed=True)
+def get_leaftype(api, query, project=None):
+    #if isinstance(query, LeafType):
+    #    return query
+    if str(query).isdigit():
+        query = int(query)
+    if isinstance(query, int):
+        return api.get_leaf_type(query)
+    else:
+
+        project_id = get_project_id(api, project)
+
+        leaftype_objs = api.get_leaf_type_list(project_id)
+        if query=='list':
+            return leaftype_objs
+        leaftype_objs = [lt for lt in leaftype_objs if lt.name == query]
+        assert len(leaftype_objs)==1, f'Duplicate Versions Found for "{query}": {[obj.id for obj in leaftype_objs]}' if len(leaftype_objs)>1 else f'LeafType Not Found: "{query}"'
+        return leaftype_objs[0]
+
+@lru_cache(maxsize=None, typed=True)
+def get_leaf(api, query, leaftype, project, att='path'):
+    #if isinstance(query, Leaf):
+    #    return query
+    if str(query).isdigit():
+        query = int(query)
+    if isinstance(query, int):
+        return api.get_leaf(query)
+    else:
+
+        project_id = get_project_id(api, project)
+        leaftype_id = get_leaftype(api, leaftype).id
+
+        leaf_objs = api.get_leaf_list(project_id, type=leaftype_id)
+        if query=='list':
+            leaf_objs.sort(key=lambda leaf: getattr(leaf,att))
+            return leaf_objs
+        
+        if att in ['name','id']: 
+            leaf_objs = [leaf for leaf in leaf_objs if query == getattr(leaf,att)]
+            assert len(leaf_objs)==1, f'Duplicate Versions Found for "{query}": {[obj.id for obj in leaf_objs]}' if len(leaf_objs)>1 else f'Leaf Not Found: "{query}"'
+            return leaf_objs[0]
+        else:
+            leaf_objs = [leaf for leaf in leaf_objs if query in getattr(leaf,att)]
+            return leaf_objs
+
+def get_leaves(api, project, leaftype=None):
+    if leaftype is None:
+        leaftypes = get_leaftype(api, 'list', project)
+        assert len(leaftypes)==1, f'Multiple LeafTypes in project "{project}", please specify LeafType'
+    return get_leaf(api, 'list', leaftypes[0].id, project)
 
 
 if __name__=='__main__':
@@ -271,6 +330,7 @@ if __name__=='__main__':
                 print(f'{l.id: 4d} "{l.name}"')
         else: 
             print(f'LOCALIZATION TYPE: "{loctype.name}" id={loctype.id}')
+            #print(loctype)
         
     if args.version:
         version = get_version(api, args.version, project_id)
@@ -285,10 +345,35 @@ if __name__=='__main__':
         statetype = get_statetype(api,args.statetype, project_id)
         if isinstance(statetype, list):
             print('STATE TYPES')
-            for l in statetype:
-                print(f'{l.id: 4d} "{l.name}"')
+            for s in statetype:
+                print(f'{l.id: 4d} "{s.name}"')
         else:
             print(f'STATE TYPE: "{statetype.name}" id={statetype.id}')
 
-
+    if args.leaftype:
+        leaftype = get_leaftype(api, args.leaftype, project_id)
+        def leafprint(leaves):
+            if not leaves: return
+            if isinstance(leaves,list):
+                print('  LEAVES')
+                for leaf in leaves:
+                    print(f'{leaf.id: 6d}  {leaf.path}')
+            else:
+                print(f'LEAF: "{leaves.path}" id={leaves.id}')
+                #print(leaves)
+        if isinstance(leaftype, list):
+            print('LEAF TYPES')
+            for l in leaftype:
+                leafcount_str=''
+                if args.leaf == 'list':
+                    leaves = get_leaf(api, args.leaf, l.id, project_id)
+                    leafcount_str = f'({len(leaves)} leaves)'
+                print(f'{l.id: 4d} "{l.name}" {leafcount_str}')
+        else:
+            print(f'LEAF TYPE: "{leaftype.name}" id={leaftype.id}')
+            if args.leaf:
+                leaves = get_leaf(api, args.leaf, leaftype.id, project_id)
+                leafprint(leaves)
+                
+            
 

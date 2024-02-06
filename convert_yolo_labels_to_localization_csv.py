@@ -29,7 +29,7 @@ def do_it(src):
                      loc = dict(media=media, frame=frame,
                                 x=x, y=y, width=w, height=h,
                                 score=s, class_idx=c)
-                     print(loc)
+                     #print(loc)
                      locs.append(loc)
 
     # 4 make a csv with pandas
@@ -55,4 +55,5 @@ if __name__=='__main__':
     df['Class'] = df.class_idx.apply(lambda c: classes[c])
 
     df.sort_values(by=['media','frame', 'x', 'y'], inplace=True)
+    print(f'WRITING: {args.outfile}')
     df.to_csv(args.outfile, index=False)

@@ -17,14 +17,19 @@ def cli():
         help='Tator Server URL, default is "https://tator.whoi.edu"')
     parser.add_argument('--project', '-p', required=True, help='Project Name or ID. Required.')
 
+    parser.add_argument('--col_media', default='media')
+    parser.add_argument('--col_frame', default='frame')
     parser.add_argument('--col_x', default='x')
     parser.add_argument('--col_y', default='y')
     parser.add_argument('--col_w', default='width')
     parser.add_argument('--col_h', default='height')
     parser.add_argument('--col_class', default='Class')
-    parser.add_argument('--col_media', default='media')
-    parser.add_argument('--col_frame', default='frame')
+    parser.add_argument('--col_score', default='ModelScore')
     parser.add_argument('--col_imagepath', default='imagepath')
+    
+    parser.add_argument('--tat_loc') # TODO finish thinking through
+    parser.add_argument('--tat_loc_class', default='Class') # TODO
+    parser.add_argument('--tat_leaf_class', default='Classes') # TODO
 
     # TODO: actions
     # convert column coordinates
@@ -83,21 +88,39 @@ if __name__ == '__main__':
     args.project = project.name
     args.project_id = project.id
   
+    if 'check_classes' in args.action:
+    
+        # HACK renaming some classes
+        df[df[args.col_class] == 'salp'] = 'salpa_aspera'
+        df[df[args.col_class] == 'euphasid']  = 'euphausid'
+        print(set(df[args.col_class]))
+        
+        print('CHECK CLASSES')
+        classes_csv = set(df[args.col_class])
+        classes_tator = {leaf.name for leaf in api_util.get_leaves(api, args.project_id)}
+        classes_tator_enum = api_util.get_loctype(api, 'list', args.project_id)[0]
+        classes_tator_enum = set([a for a in classes_tator_enum.attribute_types if a.dtype=='enum'][0].choices)
+        print(f'MISSING FROM ENUM: {classes_csv-classes_tator_enum}')
+        print(f'MISSING FROM LEAFS: {classes_csv-classes_tator}')
+        assert classes_csv.issubset(classes_tator), f'Unrecognized csv classes: {classes_csv-classes_tator}'
+        
     if 'add_tiff_frame' in args.action:
         print('ADDING TIFF IMG PATHS')
         df[args.col_imagepath] = df.apply(lambda l: os.path.join(
             api_util.get_media(api, l[args.col_media]).attributes['tiff_dir'],
             api_util.get_media(api, l[args.col_media]).attributes['tiff_pattern'].format( l['frame'] )
         ))
-  
-    if 'check_classes' in args.action:
-        print('CHECK CLASSES')
-        classes_csv = set(df[args.col_class])
-        classes_tator = {leaf.name for leaf in api.get_leaf_list(args.project_id)}
-        assert classes_csv.issubset(classes_tator), f'Unrecognized csv classes: {classes_csv-classes_tator}'
         
-    if 'convert_coords_upleft' in args.action:
+    if 'xy_ratio_corner_to_center' in args.action:
         print('CONVERTING COORDS UP-LEFT')
+        df[args.col_x] = df[args.col_x]-df[args.col_w]/2
+        df[args.col_y] = df[args.col_y]-df[args.col_h]/2
+        df = df.round({args.col_x:7,args.col_y:7})
+        df[args.col_x] = df[args.col_x].clip(lower=0, upper=1)
+        df[args.col_y] = df[args.col_y].clip(lower=0, upper=1)
+    
+    if 'xy_ratio_center_to_corner' in args.action:
+        print('CONVERTING COORDS DOWN-RIGHT')
         df[args.col_x] = df[args.col_x]-df[args.col_w]/2
         df[args.col_y] = df[args.col_y]-df[args.col_h]/2
         df = df.round({args.col_x:7,args.col_y:7})
