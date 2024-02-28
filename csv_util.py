@@ -89,11 +89,13 @@ if __name__ == '__main__':
     args.project_id = project.id
   
     if 'check_classes' in args.action:
-    
+
         # HACK renaming some classes
-        df[df[args.col_class] == 'salp'] = 'salpa_aspera'
-        df[df[args.col_class] == 'euphasid']  = 'euphausid'
-        print(set(df[args.col_class]))
+        idx_euph = df[df[args.col_class]=='euphasid'].index
+        df.loc[idx_euph,args.col_class] = 'euphausid'
+        idx_salp = df[df[args.col_class]=='salp'].index
+        df.loc[idx_salp,args.col_class] = 'salpa_aspera'
+        #print(set(df[args.col_class]))
         
         print('CHECK CLASSES')
         classes_csv = set(df[args.col_class])
@@ -110,11 +112,11 @@ if __name__ == '__main__':
             api_util.get_media(api, l[args.col_media]).attributes['tiff_dir'],
             api_util.get_media(api, l[args.col_media]).attributes['tiff_pattern'].format( l['frame'] )
         ))
-        
+
     if 'xy_ratio_corner_to_center' in args.action:
         print('CONVERTING COORDS UP-LEFT')
-        df[args.col_x] = df[args.col_x]-df[args.col_w]/2
-        df[args.col_y] = df[args.col_y]-df[args.col_h]/2
+        df[args.col_x] = df[args.col_x] - df[args.col_w]/2
+        df[args.col_y] = df[args.col_y] - df[args.col_h]/2
         df = df.round({args.col_x:7,args.col_y:7})
         df[args.col_x] = df[args.col_x].clip(lower=0, upper=1)
         df[args.col_y] = df[args.col_y].clip(lower=0, upper=1)
