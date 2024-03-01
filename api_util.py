@@ -5,10 +5,14 @@ import argparse
 import tator
 from tator.openapi.tator_openapi.models import Project, Media, LocalizationType, Version, User
 
+def read_token(token_file):
+    with open(token_file) as f:
+        return f.read().strip()
+
 def cli():
     parser = argparse.ArgumentParser()
-    parser.add_argument('TOKEN', help='A tator api token')
-    parser.add_argument('--HOST', default='https://tator.whoi.edu', help='Tator Server URL, default is "https://tator.whoi.edu"')
+    parser.add_argument('--token', '-t', help='A tator api token', required=True)
+    parser.add_argument('--host', default='https://tator.whoi.edu', help='Tator Server URL, default is "https://tator.whoi.edu"')
     parser.add_argument('--user', '-u', help='Username or ID of a User. "list" will list all users')
     parser.add_argument('--project', '-p', help='Name or ID of the Project. Required for media, loctype, version string-name lookup. "list" will list all projects')
     parser.add_argument('--media', '-m', help='Name or ID of the Media. "list" will list all video media for given project')
@@ -21,9 +25,8 @@ def cli():
     
     args = parser.parse_args()
 
-    if os.path.isfile(args.TOKEN):
-        with open(args.TOKEN) as f:
-            args.TOKEN = f.read().strip()
+    if os.path.isfile(args.token):
+        args.token = read_token(args.token)
     
     if not args.project:
         if args.media and not args.media.isdigit():
@@ -291,7 +294,7 @@ def get_leaves(api, project, leaftype=None):
 
 if __name__=='__main__':
     args = cli()
-    api = tator.get_api(args.HOST, args.TOKEN)
+    api = tator.get_api(args.host, args.token)
 
     if args.user:
         user = get_user(api, args.user)
