@@ -17,6 +17,8 @@ def cli():
         help='Tator Server URL, default is "https://tator.whoi.edu"')
     parser.add_argument('--project', '-p', required=True, help='Project Name or ID. Required.')
 
+    parser.add_argument('--col_rename', '-r', nargs=2, action='append', help='Rename a column, can be used multiple times', metavar=('OLD', 'NEW'))
+
     parser.add_argument('--col_media', default='media')
     parser.add_argument('--col_frame', default='frame')
     parser.add_argument('--col_x', default='x')
@@ -77,17 +79,27 @@ def ratio_to_pixel(img_length):
 
 if __name__ == '__main__':
     args = cli()
-    
+
+    df = pd.read_csv(args.src)
+
+    # rename columns using args.col_rename
+    if args.col_rename:
+        for old,new in args.col_rename:
+            df = df.rename(columns={old:new})
+
+    # apply dtype conversions to columns
     dtypes = {args.col_media:str, args.col_frame:int,
               args.col_x:float, args.col_y:float,
               args.col_w:float, args.col_h:float}
-    df = pd.read_csv(args.src, dtype=dtypes)
-  
+    for col,dtype in dtypes.items():
+        df[col] = df[col].astype(dtype)
+
+
     api = tator.get_api(args.host, args.token)
     project = api_util.get_project(api, args.project)
     args.project = project.name
     args.project_id = project.id
-  
+
     if 'check_classes' in args.action:
 
         # HACK renaming some classes
