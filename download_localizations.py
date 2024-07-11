@@ -135,11 +135,11 @@ if __name__=='__main__':
             media_frame_dict[state.media[0]].append(state.frame)
         for media_id,frames in tqdm(media_frame_dict.items()):
             for frame in tqdm(frames, leave=False):
-                locs = get_localizations(api, args.project, args.version, args.loctype, args.att, media_id, frame)
+                locs = get_localizations(api, args.project, [args.version], args.loctype, args.att, media_id, frame)
                 localizations.extend(locs)
 
     else:
-        localizations = get_localizations(api, args.project, args.version, args.loctype, args.att, args.media, args.frame, args.pagination, args.id)
+        localizations = get_localizations(api, args.project, [args.version], args.loctype, args.att, args.media, args.frame, args.pagination, args.id)
 
     ## DISPLAY
     print('Building CSV')
