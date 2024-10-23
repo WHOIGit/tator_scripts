@@ -1,4 +1,4 @@
-tator~=1.0.4
+tator~=1.1.3
 pandas~=1.5.3
 
 pyyaml~=6.0

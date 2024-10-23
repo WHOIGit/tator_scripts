@@ -15,7 +15,7 @@ def cli():
     parser.add_argument('--token', required=True, help='A tator api token')
     parser.add_argument('--host', default='https://tator.whoi.edu',  help='Tator Server URL, default is "https://tator.whoi.edu"')
     parser.add_argument('--project', '-p', required=True, help='Project Name or ID. Required.')
-    # parser.add_argument('--section', '-s', help='Section Name or ID')
+    parser.add_argument('--section', '-s', help='Section Name or ID')
     parser.add_argument('--media', '-m', help='Media Name or ID')
     parser.add_argument('--frame', '-f', type=int, help='Frame ID')
     parser.add_argument('--loctype', '-l', help='LocalizationType Name or ID')
@@ -48,7 +48,7 @@ def cli():
 
 
 def get_localizations(api, project, versions=None, loctype=None, att_keyval_pairs=None, media=None, frame=None,
-                      startstop:tuple=None, id_list=None):
+                      startstop:tuple=None, id_list=None, section=None):
     created_ids = []
     project = api_util.get_project(api,project)
 
@@ -62,8 +62,8 @@ def get_localizations(api, project, versions=None, loctype=None, att_keyval_pair
         kwargs['media_id'] = [api_util.get_media(api, media).id]
     if frame:  
         kwargs['frame'] = int(frame)
-    #if section: 
-    #    kwargs['section'] = api_util.get_section(api,section).id
+    if section:
+        kwargs['section'] = api_util.get_section(api,section).id
         
     if att_keyval_pairs:
         kwargs['attribute'] = [f'{att}::{val}' for att,val in att_keyval_pairs]
@@ -115,6 +115,8 @@ def format_localization_dict(api, l:Localization):
 if __name__=='__main__':
     args = cli()
     api = tator.get_api(args.host,args.token)
+    versions = [args.version] if args.version else []
+
 
     if not args.loctype:
         loctypes = api_util.get_loctype(api, 'list', args.project)
@@ -135,11 +137,11 @@ if __name__=='__main__':
             media_frame_dict[state.media[0]].append(state.frame)
         for media_id,frames in tqdm(media_frame_dict.items()):
             for frame in tqdm(frames, leave=False):
-                locs = get_localizations(api, args.project, [args.version], args.loctype, args.att, media_id, frame)
+                locs = get_localizations(api, args.project, versions, args.loctype, args.att, media_id, frame)
                 localizations.extend(locs)
 
     else:
-        localizations = get_localizations(api, args.project, [args.version], args.loctype, args.att, args.media, args.frame, args.pagination, args.id)
+        localizations = get_localizations(api, args.project, versions, args.loctype, args.att, args.media, args.frame, args.pagination, args.id, args.section)
 
     ## DISPLAY
     print('Building CSV')

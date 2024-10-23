@@ -15,6 +15,7 @@ def cli():
     parser.add_argument('--host', default='https://tator.whoi.edu', help='Tator Server URL, default is "https://tator.whoi.edu"')
     parser.add_argument('--user', '-u', help='Username or ID of a User. "list" will list all users')
     parser.add_argument('--project', '-p', help='Name or ID of the Project. Required for media, loctype, version string-name lookup. "list" will list all projects')
+    parser.add_argument('--section', help='Name or ID of the Section. "list" will list all sections for given project')
     parser.add_argument('--media', '-m', help='Name or ID of the Media. "list" will list all video media for given project')
     parser.add_argument('--mediatype', help='Name or ID of the MediaType. "list" will list all media types for given project')
     parser.add_argument('--loctype', '-l', help='Name or ID of the LocalizationType. "list" will list all localization types for given project')
@@ -41,6 +42,8 @@ def cli():
         if args.statetype and not args.statetype.isdigit():
             parser.error('--project NOT SET. Required for --statetype string-query')
 
+        if args.section and not args.section.isdigit():
+            parser.error('--project NOT SET. Required for --section string-query')
     return args
 
 
@@ -51,6 +54,8 @@ def add_arg_ids(api,args):
         args.user_id = get_user(api,args.user).id
     if 'media' in args and args.media != 'list':
         args.media_id = get_media(api,args.media,project=args.project_id)
+    if 'section' in args and args.section != 'list':
+        args.section_id = get_section(api, args.section, project=args.project_id)
     if 'mediatype' in args and args.mediatype != 'list':
         args.mediatype_id = get_mediatype(api,args.mediatype,project=args.project_id).id
     if 'loctype' in args and args.loctype != 'list':
@@ -92,6 +97,25 @@ def get_project_id(api, p):
             return project.id
     elif isinstance(p,int):
         return p
+
+@lru_cache(maxsize=None, typed=True)
+def get_section(api, query, project=None):
+    #if isinstance(query, Media):
+    #    return query
+    if str(query).isdigit():
+        query = int(query)
+    if isinstance(query, int):
+        return api.get_section(query)
+    project_id = get_project_id(api, project)
+
+    if query=='list':
+        section_objs = api.get_section_list(project_id)
+        return sorted(section_objs, key = lambda section: section.id)
+
+    section_objs = api.get_section_list(project, name=query)
+
+    assert len(section_objs)==1, f'Duplicate Sections Found for "{query}": {[obj.id for obj in section_objs]}' if len(section_objs)>1 else f'Section Not Found: "{query}"'
+    return section_objs[0]
 
 @lru_cache(maxsize=None, typed=True)
 def get_media(api, query, project=None):
@@ -308,6 +332,7 @@ if __name__=='__main__':
     if args.project:
         project = get_project(api, args.project)
         if isinstance(project, list):
+            project_id = None
             print('PROJECTS')
             for p in project:
                 print(f'{p.id: 4d} "{p.name}"')
@@ -315,7 +340,16 @@ if __name__=='__main__':
             print(f'PROJECT: "{project.name}" id={project.id}')
             project_id = project.id
     else: project_id = None
-        
+
+    if args.section:
+        section = get_section(api, args.section, project_id )
+        if isinstance(section, list):
+            print('SECTIONS')
+            for s in section:
+                print(f'{s.id: 4d} "{s.name}"')
+        else:
+            print(f'SECTION: "{section.name}" id={section.id}')
+
     if args.media:
         media = get_media(api, args.media, project_id )
         if isinstance(media, list):
