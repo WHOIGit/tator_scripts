@@ -3,6 +3,7 @@ import os
 
 from tqdm import tqdm
 import pandas as pd
+import math
 import tator
 
 import api_util
@@ -60,8 +61,9 @@ def make_speclist(api,args):
                }
         attrib_dict = {}
         for custom_attribute in addl_headers:
-            attrib_dict[custom_attribute] = row[custom_attribute]
-            # eg Class, Verified, ModelName, ModelScore
+            if not isinstance(row[custom_attribute], pd._libs.missing.NAType):
+                attrib_dict[custom_attribute] = row[custom_attribute]
+                # eg Class, Verified, ModelName, ModelScore
         spec['attributes'] = attrib_dict
         speclist.append(spec)
 
@@ -94,8 +96,8 @@ if __name__ == '__main__':
     api_util.add_arg_ids(api,args)
 
     speclist = make_speclist(api,args)
-
-    created_ids = upload_speclist(api, speclist[21:], args.project_id)
+    #print(speclist[:2])
+    created_ids = upload_speclist(api, speclist, args.project_id)
     print(created_ids)
     
     print(f'DONE! Created {len(created_ids)} localizations')
