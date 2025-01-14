@@ -18,7 +18,7 @@ def cli():
     parser.add_argument('--loctype', '-l', required=True, help='Name or ID of the LocalizationType being uploaded')
     parser.add_argument('--version', '-v', required=True, help='Name or ID of the Version layer localizations are to be uploaded-to')
     parser.add_argument('--force-version', nargs='?', const=True, help='Create a new version if the named one doesnt already exist. A DESCRIPTION may additionally be provided.')
-    parser.add_argument('--col-drop', nargs='+', help='Columns from csv to drop prior to upload')
+    parser.add_argument('--col-drop', nargs='+', default=[], help='Columns from csv to drop prior to upload')
     parser.add_argument('--col-rename', metavar=('OLD','NEW'), nargs=2, action='append', help='Rename a column. Can be invoked more than once for multiple columns')
     parser.add_argument('--col-add', metavar=('NAME','CONTENT'), nargs=2, action='append', help='Adds a new column NAME populated homogenously with CONTENT. Can be invoked  more than once to create multiple new columns')
 
@@ -103,7 +103,7 @@ if __name__ == '__main__':
     #print(speclist[:2])
     created_ids = upload_speclist(api, speclist, args.project_id)
     print(created_ids)
-    
+
     print(f'DONE! Created {len(created_ids)} localizations')
 
 
