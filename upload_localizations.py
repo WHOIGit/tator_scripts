@@ -20,6 +20,7 @@ def cli():
     parser.add_argument('--force-version', nargs='?', const=True, help='Create a new version if the named one doesnt already exist. A DESCRIPTION may additionally be provided.')
     parser.add_argument('--col-drop', nargs='+', help='Columns from csv to drop prior to upload')
     parser.add_argument('--col-rename', metavar=('OLD','NEW'), nargs=2, action='append', help='Rename a column. Can be invoked more than once for multiple columns')
+    parser.add_argument('--col-add', metavar=('NAME','CONTENT'), nargs=2, action='append', help='Adds a new column NAME populated homogenously with CONTENT. Can be invoked  more than once to create multiple new columns')
 
     args = parser.parse_args()
     if os.path.isfile(args.token):
@@ -40,6 +41,9 @@ def make_speclist(api,args):
     df = pd.read_csv(args.src)
     if args.col_rename:
         df.rename(columns=args.col_rename, inplace=True, errors="raise")
+    if args.col_add:
+        for col_name,col_content in args.col_add:
+            df[col_name] = col_content
     df = df.convert_dtypes()
     print(df.T)
     df = df.sort_values(by=required_headers)

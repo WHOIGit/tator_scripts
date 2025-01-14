@@ -184,9 +184,7 @@ def get_version(api, query, project=None, autocreate=False):
     if isinstance(query, int):
         return api.get_version(query)
     else:
-        
         project_id = get_project_id(api, project)
-            
         version_objs = api.get_version_list(project_id)
         if query=='list':
             return sorted(version_objs, key = lambda v: v.id)

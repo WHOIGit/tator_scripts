@@ -54,7 +54,7 @@ def get_localizations(api, project, versions=None, loctype=None, att_keyval_pair
 
     kwargs = {}
     # NOTE some params must be wrapped by [list] https://github.com/cvisionai/tator-py/issues/62
-    if versions: 
+    if versions:
         kwargs['version'] = [api_util.get_version(api, v, project=project.id).id for v in versions]  # can also be a list of int
     if loctype: 
         kwargs['type'] = api_util.get_loctype(api, loctype, project=project.id).id
@@ -145,13 +145,15 @@ if __name__=='__main__':
 
     ## DISPLAY
     print('Building CSV')
-    loc_dicts = [format_localization_dict(api,loc) for loc in localizations]
+    print('  Formatting Localization Records:')
+    loc_dicts = [format_localization_dict(api,loc) for loc in tqdm(localizations)]
+    print('  Constructing DataFrame...')
     df = pd.DataFrame.from_records(loc_dicts, index='id')
     if args.frame_download_dir:
         df['imagepath'] = df.apply(lambda row: os.path.join(args.frame_download_dir,f'{row.media_id}_{row.frame}.png'), axis=1)
     if args.outfile and args.outfile.endswith('.csv'):
         print('Saving CSV to:', args.outfile)
-        df.to_csv(args.outfile, index=False)
+        df.to_csv(args.outfile, index=True)
     else:
         print(df.T)
 
@@ -170,8 +172,10 @@ if __name__=='__main__':
         print('Downloading localization images to:', args.chips_download_dir)
         os.makedirs(args.chips_download_dir, exist_ok=True)
         for l in tqdm(localizations):
-            target_img_name = f'{l.media}_{l.frame}_{l.id}.png'
-            target_img_path = os.path.join(args.chips_download_dir,target_img_name)
+            classdir = l.attributes["ClassStrCorrection"] or l.attributes["Class"]
+            target_img_name = f'{classdir}/{l.media:04}_{l.frame:06}_{l.id}.png'
+            target_img_path = os.path.join(args.chips_download_dir, target_img_name)
+            os.makedirs(os.path.dirname(target_img_path), exist_ok=True)
             if not os.path.isfile(target_img_path):  # todo clobber?
                 tmp_img_path = api.get_localization_graphic(l.id)
                 shutil.copyfile(tmp_img_path, target_img_path)
