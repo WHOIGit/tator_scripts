@@ -8,7 +8,7 @@ import tator
 from tator.openapi.tator_openapi.models import Localization
 from tqdm import tqdm
 import shutil
-import api_util
+import api_util as util
 
 with open('sbatchelder.token') as f: TOKEN=f.read().strip()
 api = tator.get_api('https://tator.whoi.edu',TOKEN)
@@ -17,7 +17,7 @@ statetype_id=1
 version_id=2
 statetype=1
 
-states = api.get_state_list(project_id,type=stateype)
+states = api.get_state_list(project_id,type=statetype)
 records = [dict(id=s.id, media_id=s.media[0], frame=s.frame, modified_by=s.modified_by, modified_ts=s.modified_datetime, Verified=s.attributes['Verified'], training=s.attributes['training'], holdout=s.attributes['holdout']) for s in states]
 
 df = pd.DataFrame.from_records(records)
